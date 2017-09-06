@@ -144,5 +144,56 @@ Anonymous Python 函数总是在解析结束后执行, 无论他们定义在什�
 
 ## Tasks
 
-Task 是BitBake的执行单元, 组成了BitBake执行一个recipe的步骤. Task只在 recipe和class中支持(.bb 文件中和include .bb或者inherited .bb的文件中). 按照惯例, task 的名字以 "do_" 开头.
+Task是BitBake的执行单元, 是BitBake执行一个recipe的过程, 通常一个 recipe 包含do_fetch, do_patch, do_compile 等 task.
+
+Task只在 recipe和class中支持(.bb 文件中和include .bb或者inherited .bb的文件中). 按照惯例, task 的名字以 "do_" 开头.
+
+### 将一个函数变为 Task
+
+使用 addtask 命令可以将一个  shell functions 或者 BitBake-style Python functions 变成一个 task, 例如:
+
+     python do_printdate () {
+         import time
+         print time.strftime('%Y%m%d', time.gmtime())
+     }
+     addtask printdate after do_fetch before do_build
+addtask 的第一个参数是函数名字, 如果名字没有以"do_"开始, "do_"会被隐式添加.  
+同时上面的语句定义了task之间的依赖关系, do_printdate 依赖于do_fetch, 并且是do_build的依赖, 执行 do_build 会导致 do_printdate 先运行. do_build 是所有 recipe的默认task, 其依赖于所有其他的task.
+
+	注:
+	当使用 bitbake recipe 编译 recipe 运行上面的例子时, 会发现 do_printdate 只在第一次的时候运行, 这是因为bitbake认为task已经是最新的了. 
+	如果你想让task每次都会运行, 可以使用[nostamp]标志(没有时间戳), 这样bitbake 就会认为do_printdate task 总是过时的.
+		do_printdate[nostamp] = "1"
+
+	也可以通过 -f 选项显式执行 task, 如:
+	$ bitbake recipe -c printdate -f
+	这条命令相当于选择一个 task 执行, 此时可以省略前缀 "do_". 
+
+如果在使用 addtask 时没有指定任何依赖, 如下:
+	
+	addtask printdate
+则task不会在 bitbake recipe 过程中运行, 唯一运行此task的方法是使用 bitbake recipe -c printdate 手动执行.
+
+	$ bitbake recipe -c listtasks # 列出recipe的所有task.
+
+### 删除一个task
+
+使用deltask命令, 如下:
+	
+	deltask printdate
+
+如果删除的task有依赖, 则 deltask会删除依赖关系. 比如 do_c 依赖与 do_b, do_b 依赖于 do_a, 删除do_b之后则 do_c 并不会依赖于 do_a, do_c 有可能先于 do_a运行.
+
+如果想保持依赖关系, 可以使用 [noexec] 标志禁用 do_b, 如下:
+
+	do_b[noexec] = "1"
+
+### 传递信息到Task执行环境(暂略)
+
+## 变量标志 (Variable Flags)
+
+变量标志用于控制 task的功能和依赖, 如前面用到的 [nostamp], [noexec]. 还有如下这些常用的:
+
+	 
+
 
